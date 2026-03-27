@@ -45,7 +45,7 @@ Además necesitas:
 ### 1. Clonar el repositorio
 
 ```bash
-git clone <url-del-repo>
+git clone [<url-del-repo>](https://github.com/quijotex/matilda.git)
 cd matilda
 ```
 
@@ -116,37 +116,9 @@ La interfaz estará disponible en [http://localhost:8501](http://localhost:8501)
 ---
 
 ## 🧠 Arquitectura
+<img width="8192" height="3475" alt="Mermaid Chart - Create complex, visual diagrams with text -2026-03-27-181105" src="https://github.com/user-attachments/assets/5bfeb91c-4839-4b83-bc6c-34aec4f03668" />
 
-```
-Usuario (Streamlit UI)
-        │
-        ▼
-   app.py  ──────────────────────────────────┐
-   (Chat UI, historial,                       │
-    visualizaciones, roles)                   │
-        │                                     │
-        ▼                                     │
-   src/agent.py                               │
-   (Gemini Client,                            │
-    system prompt,                            │
-    function calling,                         │
-    fallback de modelos)                      │
-        │                                     │
-        ▼                                     │
-   src/data_engine.py  ◄─────────────────────┘
-   (Herramientas analíticas:
-    obtener_paginas_top,
-    calcular_tasas_abandono,
-    analizar_patrones_conversion,
-    obtener_flujos_frecuentes,
-    obtener_interaccion_promedio,
-    obtener_insight_frustracion,
-    obtener_insight_calidad_trafico,
-    obtener_insight_anatomia_abandono)
-        │
-        ▼
-   data/processed/*.parquet
-```
+
 
 ### Flujo de una consulta
 
