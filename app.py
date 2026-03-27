@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import html
+import json
 import re
+import time
+import uuid
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -34,6 +38,26 @@ ROLE_QUICK_QUESTIONS: dict[str, list[str]] = {
         "¿Qué hallazgos accionables explicarían mejor la salud del funnel digital hoy?",
     ],
 }
+
+DEBUG_LOG_PATH = Path(__file__).resolve().parent / "debug-a1f088.log"
+DEBUG_SESSION_ID = "a1f088"
+
+
+def debug_log(run_id: str, hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
+    # region agent log
+    payload = {
+        "sessionId": DEBUG_SESSION_ID,
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+        "id": f"log_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
+    }
+    with DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    # endregion
 
 
 def normalize_label(value: Any, max_len: int = 34) -> str:
@@ -350,6 +374,15 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         style,
         unsafe_allow_html=True,
     )
+    # region agent log
+    debug_log(
+        run_id="pre-fix",
+        hypothesis_id="H1",
+        location="app.py:inject_styles",
+        message="Styles injected",
+        data={"theme_mode": theme_mode, "font_scale": font_scale, "is_dark": is_dark},
+    )
+    # endregion
 
 
 def initialize_state() -> None:
@@ -418,6 +451,20 @@ def render_sidebar() -> None:
         st.caption(f"Modelo: {config['model_name']}")
         st.caption(f"Fallbacks: {', '.join(config['fallback_models']) or 'ninguno'}")
         st.caption(f"Tools activas: {config['tool_count']}")
+        # region agent log
+        debug_log(
+            run_id="pre-fix",
+            hypothesis_id="H2",
+            location="app.py:render_sidebar",
+            message="Sidebar rendered",
+            data={
+                "selected_role": st.session_state.selected_role,
+                "theme_mode": st.session_state.theme_mode,
+                "font_scale": st.session_state.font_scale,
+                "pending_prompt": bool(st.session_state.pending_prompt),
+            },
+        )
+        # endregion
 
 
 def _escape_with_breaks(value: str) -> str:
@@ -441,6 +488,15 @@ def parse_copilot_output(content: str) -> dict[str, str]:
 def build_chart_payload(tool_call: dict[str, Any]) -> dict[str, Any] | None:
     tool_name = tool_call.get("tool_name")
     result = tool_call.get("result", {})
+    # region agent log
+    debug_log(
+        run_id="pre-fix",
+        hypothesis_id="H3",
+        location="app.py:build_chart_payload",
+        message="Build chart payload input",
+        data={"tool_name": tool_name, "result_keys": list(result.keys())[:10]},
+    )
+    # endregion
 
     if tool_name == "obtener_paginas_top":
         records = result.get("resultados", [])
@@ -536,6 +592,24 @@ def render_assistant_message(message: dict[str, Any]) -> None:
         """,
         unsafe_allow_html=True,
     )
+    # region agent log
+    debug_log(
+        run_id="pre-fix",
+        hypothesis_id="H4",
+        location="app.py:render_assistant_message",
+        message="Assistant message rendered",
+        data={
+            "content_len": len(message.get("content", "")),
+            "tool_calls_count": len(message.get("tool_calls", [])),
+            "dato_len": len(parsed.get("dato", "")),
+            "interpretacion_len": len(parsed.get("interpretacion", "")),
+        },
+    )
+    # endregion
+
+
+def render_user_message(content: str) -> None:
+    st.markdown(content)
 
 
 def build_error_message(exc: Exception) -> dict[str, Any]:
@@ -551,6 +625,15 @@ def build_error_message(exc: Exception) -> dict[str, Any]:
 
 
 def process_prompt(prompt: str) -> None:
+    # region agent log
+    debug_log(
+        run_id="pre-fix",
+        hypothesis_id="H5",
+        location="app.py:process_prompt",
+        message="Prompt processing started",
+        data={"prompt_len": len(prompt or ""), "prompt_preview": (prompt or "")[:100]},
+    )
+    # endregion
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("user"):
@@ -560,6 +643,19 @@ def process_prompt(prompt: str) -> None:
         with st.spinner("Matilda está analizando los datos..."):
             try:
                 response = consultar_matilda(prompt, devolver_contexto=True)
+                # region agent log
+                debug_log(
+                    run_id="pre-fix",
+                    hypothesis_id="H5",
+                    location="app.py:process_prompt",
+                    message="Matilda response received",
+                    data={
+                        "model_name": response.get("model_name"),
+                        "tool_calls_count": len(response.get("tool_calls", [])),
+                        "answer_len": len(response.get("answer_markdown", "")),
+                    },
+                )
+                # endregion
                 assistant_message = {
                     "role": "assistant",
                     "content": response["answer_markdown"],
@@ -567,6 +663,15 @@ def process_prompt(prompt: str) -> None:
                     "model_name": response.get("model_name"),
                 }
             except Exception as exc:
+                # region agent log
+                debug_log(
+                    run_id="pre-fix",
+                    hypothesis_id="H5",
+                    location="app.py:process_prompt",
+                    message="Matilda response error",
+                    data={"error_type": type(exc).__name__, "error_text": str(exc)[:220]},
+                )
+                # endregion
                 assistant_message = build_error_message(exc)
 
             render_assistant_message(assistant_message)
