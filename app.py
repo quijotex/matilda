@@ -122,6 +122,11 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
             --m-ink: #1E293B;
             --m-border: #D9E1EA;
             --m-muted: #64748B;
+            --matilda-navy: #0B192C;
+            --matilda-surface: #F8F9FA;
+            --matilda-accent: #D2143A;
+            --matilda-ink: #1E293B;
+            --matilda-border: #D9E1EA;
         }
 
         html, body,
@@ -138,8 +143,8 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         .stApp {
-            background: var(--matilda-surface);
-            color: var(--matilda-ink);
+            background: __APP_BG__;
+            color: __APP_TEXT__;
         }
 
         section[data-testid="stSidebar"] {
@@ -171,7 +176,7 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
 
         .matilda-hero {
             border-top: 6px solid var(--matilda-accent);
-            background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,244,248,0.98));
+            background: __HERO_BG__;
             border-radius: 18px;
             padding: 1.25rem 1.35rem;
             margin-bottom: 1rem;
@@ -182,15 +187,16 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         .matilda-hero-title {
-            color: var(--matilda-navy);
-            font-size: 2rem;
+            color: __HERO_TITLE__;
+            font-size: __HERO_TITLE_SIZE__;
             font-weight: 700;
             margin-bottom: 0.35rem;
         }
 
-        .matilda-hero-subtitle {
-            color: #4B5563;
-            font-size: 0.95rem;
+        .matilda-hero-subtitle,
+        .matilda-hero-sub {
+            color: __HERO_SUBTITLE__;
+            font-size: __SUBTITLE_SIZE__;
             line-height: 1.55;
         }
 
@@ -206,8 +212,8 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         .matilda-panel {
-            background: rgba(255, 255, 255, 0.94);
-            border: 1px solid var(--matilda-border);
+            background: __PANEL_BG__;
+            border: 1px solid __PANEL_BORDER__;
             border-radius: 16px;
             padding: 1.5rem 1.75rem 1.25rem 1.75rem;
             margin-bottom: 1.25rem;
@@ -240,14 +246,14 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         [data-testid="stChatMessage"]:has(.matilda-assistant-shell) {
-            background: #F1F5F9;
+            background: __ASSISTANT_BG__;
             border-left: 4px solid var(--matilda-accent);
             padding: 0.35rem 0.5rem 0.5rem 0.5rem;
         }
 
         [data-testid="stChatMessage"]:has(.matilda-user-shell) {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(11, 25, 44, 0.08);
+            background: __USER_BG__;
+            border: 1px solid __USER_BORDER__;
         }
 
         .matilda-info-card p,
@@ -258,7 +264,7 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         .matilda-response-card {
-            background: #F5F8FC;
+            background: __RESPONSE_CARD_BG__;
             border: 1px solid rgba(11, 25, 44, 0.08);
             border-left: 4px solid var(--matilda-accent);
             border-radius: 14px;
@@ -275,20 +281,21 @@ def inject_styles(theme_mode: str, font_scale: str) -> None:
         }
 
         .matilda-response-label {
-            color: var(--matilda-navy);
+            color: __RESPONSE_LABEL__;
             font-weight: 700;
             font-size: 0.92rem;
             margin-bottom: 0.3rem;
         }
 
         .matilda-response-text {
-            color: #334155;
+            color: __RESPONSE_TEXT__;
             line-height: 1.7;
+            font-size: __RESPONSE_TEXT_SIZE__;
             white-space: normal;
         }
 
         .matilda-caption {
-            color: #64748B;
+            color: __CAPTION_COLOR__;
             font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
