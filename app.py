@@ -10,7 +10,12 @@ import streamlit as st
 from src.agent import consultar_matilda, obtener_configuracion_modelo
 
 
-st.set_page_config(page_title="Matilda - Data Hub", page_icon="🎀", layout="wide")
+st.set_page_config(
+    page_title="Matilda - Data Hub",
+    page_icon="🎀",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 ROLE_QUICK_QUESTIONS: dict[str, list[str]] = {
     "Marketing": [
@@ -38,152 +43,211 @@ def inject_styles() -> None:
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 
         :root {
-            --matilda-navy: #0B192C;
-            --matilda-surface: #F8F9FA;
-            --matilda-accent: #D2143A;
-            --matilda-ink: #102033;
-            --matilda-soft: #EAF0F6;
-            --matilda-border: #D9E1EA;
+            --m-navy: #0B192C;
+            --m-surface: #F8F9FA;
+            --m-accent: #D2143A;
+            --m-ink: #1E293B;
+            --m-border: #D9E1EA;
+            --m-muted: #64748B;
         }
 
-        html, body, [class*="st-"], [data-testid="stMarkdownContainer"], button, input, textarea, select {
+        html, body,
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] li,
+        [data-testid="stMarkdownContainer"] span,
+        [data-testid="stChatInput"] textarea,
+        [data-testid="stSelectbox"],
+        .stButton > button,
+        input, textarea, select, label, h1, h2, h3, h4, h5, h6 {
             font-family: "JetBrains Mono", monospace !important;
         }
 
         .stApp {
-            background: var(--matilda-surface);
-            color: var(--matilda-ink);
+            background-color: var(--m-surface) !important;
         }
 
-        [data-testid="stSidebar"] {
-            background: var(--matilda-navy);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        header[data-testid="stHeader"] {
+            background-color: var(--m-surface) !important;
+            border-bottom: 1px solid var(--m-border);
         }
 
-        [data-testid="stSidebar"] * {
-            color: #F8FAFC;
+        section[data-testid="stSidebar"] {
+            background-color: var(--m-navy) !important;
         }
 
-        .matilda-hero {
-            border-top: 6px solid var(--matilda-accent);
-            background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,244,248,0.98));
-            border-radius: 18px;
-            padding: 1.25rem 1.35rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 18px 45px rgba(11, 25, 44, 0.08);
-            border-left: 1px solid rgba(210, 20, 58, 0.12);
-            border-right: 1px solid rgba(11, 25, 44, 0.06);
-            border-bottom: 1px solid rgba(11, 25, 44, 0.06);
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3,
+        section[data-testid="stSidebar"] h4,
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] small,
+        section[data-testid="stSidebar"] hr {
+            color: #CBD5E1 !important;
+            -webkit-text-fill-color: #CBD5E1 !important;
         }
 
-        .matilda-hero-title {
-            color: var(--matilda-navy);
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 0.35rem;
-        }
-
-        .matilda-hero-subtitle {
-            color: #4B5563;
-            font-size: 0.95rem;
-            line-height: 1.55;
-        }
-
-        .matilda-badge {
-            display: inline-block;
-            background: rgba(210, 20, 58, 0.08);
-            color: var(--matilda-accent);
-            border: 1px solid rgba(210, 20, 58, 0.22);
-            padding: 0.3rem 0.55rem;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            margin-bottom: 0.8rem;
-        }
-
-        .matilda-panel {
-            background: rgba(255, 255, 255, 0.94);
-            border: 1px solid var(--matilda-border);
-            border-radius: 16px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 8px 24px rgba(11, 25, 44, 0.04);
-        }
-
-        .stButton > button,
-        [data-testid="baseButton-secondary"],
-        [data-testid="baseButton-primary"] {
-            width: 100%;
-            border-radius: 12px !important;
-            border: 1px solid rgba(11, 25, 44, 0.15) !important;
-            background: #FFFFFF !important;
-            color: var(--matilda-navy) !important;
+        section[data-testid="stSidebar"] .stButton > button {
+            background-color: rgba(255,255,255,0.08) !important;
+            background-image: none !important;
+            color: #E2E8F0 !important;
+            -webkit-text-fill-color: #E2E8F0 !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            border-radius: 10px !important;
+            text-align: left !important;
+            padding: 0.55rem 0.75rem !important;
+            font-size: 0.82rem !important;
+            line-height: 1.4 !important;
+            white-space: normal !important;
+            height: auto !important;
             transition: all 0.2s ease !important;
         }
 
-        .stButton > button:hover,
-        [data-testid="baseButton-secondary"]:hover,
-        [data-testid="baseButton-primary"]:hover {
-            border-color: var(--matilda-accent) !important;
-            color: var(--matilda-accent) !important;
-            box-shadow: 0 8px 20px rgba(210, 20, 58, 0.12) !important;
-            transform: translateY(-1px);
+        section[data-testid="stSidebar"] .stButton > button p,
+        section[data-testid="stSidebar"] .stButton > button span {
+            color: #E2E8F0 !important;
+            -webkit-text-fill-color: #E2E8F0 !important;
         }
 
-        [data-testid="stChatMessage"] {
-            border-radius: 18px;
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background-color: rgba(210, 20, 58, 0.18) !important;
+            background-image: none !important;
+            border-color: var(--m-accent) !important;
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
         }
 
-        [data-testid="stChatMessage"]:has(.matilda-assistant-shell) {
-            background: #F1F5F9;
-            border-left: 4px solid var(--matilda-accent);
-            padding: 0.35rem 0.5rem 0.5rem 0.5rem;
+        section[data-testid="stSidebar"] .stButton > button:hover p,
+        section[data-testid="stSidebar"] .stButton > button:hover span {
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
         }
 
-        [data-testid="stChatMessage"]:has(.matilda-user-shell) {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(11, 25, 44, 0.08);
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"] {
+            display: none !important;
         }
 
-        .matilda-assistant-shell, .matilda-user-shell {
-            width: 100%;
+        section[data-testid="stSidebar"] > div:first-child > button:first-child {
+            font-size: 0 !important;
+            width: 2rem !important;
+            height: 2rem !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            position: relative;
+            background: transparent !important;
+            border: none !important;
+        }
+
+        section[data-testid="stSidebar"] > div:first-child > button:first-child::after {
+            content: "✕";
+            font-size: 1rem;
+            color: #94A3B8;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .matilda-hero {
+            border-top: 6px solid var(--m-accent);
+            background: #FFFFFF;
+            border-radius: 16px;
+            padding: 1.5rem 1.75rem 1.25rem 1.75rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--m-border);
+            box-shadow: 0 4px 20px rgba(11, 25, 44, 0.06);
+        }
+
+        .matilda-hero-badge {
+            display: inline-block;
+            background: rgba(210, 20, 58, 0.07);
+            color: var(--m-accent);
+            border: 1px solid rgba(210, 20, 58, 0.18);
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 0.6rem;
+        }
+
+        .matilda-hero-title {
+            color: var(--m-navy);
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0 0 0.4rem 0;
+        }
+
+        .matilda-hero-sub {
+            color: var(--m-muted);
+            font-size: 0.88rem;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .matilda-info-card {
+            background: #FFFFFF;
+            border: 1px solid var(--m-border);
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 10px rgba(11, 25, 44, 0.03);
+        }
+
+        .matilda-info-card-label {
+            color: var(--m-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .matilda-info-card p,
+        .matilda-info-card strong {
+            color: var(--m-ink);
+            font-size: 0.85rem;
+            line-height: 1.65;
         }
 
         .matilda-response-card {
-            background: #F5F8FC;
-            border: 1px solid rgba(11, 25, 44, 0.08);
-            border-left: 4px solid var(--matilda-accent);
+            background: #FFFFFF;
+            border: 1px solid var(--m-border);
+            border-left: 4px solid var(--m-accent);
             border-radius: 14px;
-            padding: 1rem 1rem 0.8rem 1rem;
-            margin-top: 0.6rem;
+            padding: 1.1rem 1.15rem 0.9rem 1.15rem;
+            margin-top: 0.5rem;
         }
 
         .matilda-response-section {
-            margin-bottom: 0.9rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .matilda-response-section:last-child {
+            margin-bottom: 0;
         }
 
         .matilda-response-label {
-            color: var(--matilda-navy);
+            color: var(--m-navy);
             font-weight: 700;
-            margin-bottom: 0.25rem;
+            font-size: 0.92rem;
+            margin-bottom: 0.3rem;
         }
 
-        .matilda-response-text {
-            color: #334155;
-            line-height: 1.7;
-            white-space: normal;
+        .matilda-response-body {
+            color: var(--m-ink);
+            font-size: 0.88rem;
+            line-height: 1.75;
         }
 
-        .matilda-caption {
-            color: #64748B;
-            font-size: 0.8rem;
+        .matilda-chart-caption {
+            color: var(--m-muted);
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            margin-bottom: 0.4rem;
-        }
-
-        [data-testid="stSelectbox"] label,
-        [data-testid="stChatInput"] label {
-            color: inherit !important;
+            margin-bottom: 0.25rem;
         }
         </style>
         """,
@@ -204,12 +268,13 @@ def render_header() -> None:
     st.markdown(
         """
         <div class="matilda-hero">
-            <div class="matilda-badge">Matilda / Data Hub Corporativo</div>
-            <div class="matilda-hero-title">Matilda - Data Hub</div>
-            <div class="matilda-hero-subtitle">
-                Analiza comportamiento digital, identifica fricción y transforma datos de navegación en decisiones accionables
-                con una experiencia tipo Copilot: visualización inmediata + lectura ejecutiva + recomendación de negocio.
-            </div>
+            <div class="matilda-hero-badge">Matilda / Data Hub Corporativo</div>
+            <div class="matilda-hero-title">Matilda — Data Hub</div>
+            <p class="matilda-hero-sub">
+                Analiza comportamiento digital, identifica fricción y transforma datos
+                de navegación en decisiones accionables. Visualización inmediata, lectura
+                ejecutiva y recomendación de negocio.
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -229,16 +294,16 @@ def render_sidebar() -> None:
         )
         st.session_state.selected_role = selected_role
 
-        st.markdown("### Preguntas rápidas")
+        st.markdown("#### Preguntas rápidas")
         for idx, question in enumerate(ROLE_QUICK_QUESTIONS[selected_role]):
             if st.button(question, key=f"quick_{selected_role}_{idx}", use_container_width=True):
                 st.session_state.pending_prompt = question
 
-        st.markdown("---")
-        st.markdown("### Configuración")
-        st.write(f"Modelo principal: `{config['model_name']}`")
-        st.write(f"Fallbacks: `{', '.join(config['fallback_models']) or 'sin fallback'}`")
-        st.write(f"Herramientas activas: `{config['tool_count']}`")
+        st.divider()
+        st.markdown("#### Motor")
+        st.caption(f"Modelo: {config['model_name']}")
+        st.caption(f"Fallbacks: {', '.join(config['fallback_models']) or 'ninguno'}")
+        st.caption(f"Tools activas: {config['tool_count']}")
 
 
 def _escape_with_breaks(value: str) -> str:
@@ -247,7 +312,7 @@ def _escape_with_breaks(value: str) -> str:
 
 def parse_copilot_output(content: str) -> dict[str, str]:
     pattern = re.compile(
-        r"📊\s*El Dato:\s*(?P<dato>.*?)(?:💡\s*Interpretación:\s*(?P<interpretacion>.*))?$",
+        r"📊\s*(?:\*\*)?El Dato(?:\*\*)?:?\s*(?P<dato>.*?)(?:💡\s*(?:\*\*)?Interpretación(?:\*\*)?:?\s*(?P<interpretacion>.*))?$",
         re.DOTALL,
     )
     match = pattern.search(content.strip())
@@ -263,80 +328,91 @@ def build_chart_payload(tool_call: dict[str, Any]) -> dict[str, Any] | None:
     tool_name = tool_call.get("tool_name")
     result = tool_call.get("result", {})
 
-    if tool_name == "obtener_paginas_top":
-        records = result.get("resultados", [])
-        if records:
-            df = pd.DataFrame(records)[["pagina", "page_views", "total_interactions"]].set_index("pagina")
-            return {"kind": "bar", "title": "Páginas top por vistas e interacciones", "data": df}
+    chart_configs: dict[str, dict[str, Any]] = {
+        "obtener_paginas_top": {
+            "key": "resultados",
+            "cols": ["pagina", "page_views", "total_interactions"],
+            "index": "pagina",
+            "title": "Páginas top por vistas e interacciones",
+        },
+        "calcular_tasas_abandono": {
+            "key": "paginas_criticas",
+            "cols": ["pagina", "tasa_abandono_pct"],
+            "index": "pagina",
+            "title": "Páginas con mayor tasa de abandono rápido",
+        },
+        "analizar_patrones_conversion": {
+            "key": "paginas_entrada_top",
+            "cols": ["pagina_entrada", "tasa_pricing_pct"],
+            "index": "pagina_entrada",
+            "title": "Páginas de entrada con mayor llegada a pricing",
+        },
+        "obtener_flujos_frecuentes": {
+            "key": "resultados",
+            "cols": ["ruta_flujo", "sesiones"],
+            "index": "ruta_flujo",
+            "title": "Flujos de navegación más frecuentes",
+        },
+        "obtener_interaccion_promedio": {
+            "key": "paginas_destacadas",
+            "cols": ["pagina", "interaccion_promedio", "scroll_promedio_pct"],
+            "index": "pagina",
+            "title": "Páginas destacadas por interacción promedio",
+        },
+        "obtener_insight_frustracion": {
+            "key": "resultados",
+            "cols": ["device", "tasa_frustracion_pct"],
+            "index": "device",
+            "title": "Frustración detectada por dispositivo",
+        },
+        "obtener_insight_calidad_trafico": {
+            "key": "resumen_por_canal",
+            "cols": ["canal_origen", "engagement_promedio"],
+            "index": "canal_origen",
+            "title": "Calidad de tráfico por canal",
+        },
+        "obtener_insight_anatomia_abandono": {
+            "key": "abandono_por_sistema_operativo",
+            "cols": ["sistema_operativo", "tasa_abandono_pct"],
+            "index": "sistema_operativo",
+            "title": "Abandono rápido por sistema operativo",
+        },
+    }
 
-    if tool_name == "calcular_tasas_abandono":
-        records = result.get("paginas_criticas", [])
-        if records:
-            df = pd.DataFrame(records)[["pagina", "tasa_abandono_pct"]].set_index("pagina")
-            return {"kind": "bar", "title": "Páginas con mayor tasa de abandono rápido", "data": df}
+    config = chart_configs.get(tool_name)
+    if not config:
+        return None
 
-    if tool_name == "analizar_patrones_conversion":
-        records = result.get("paginas_entrada_top", [])
-        if records:
-            df = pd.DataFrame(records)[["pagina_entrada", "tasa_pricing_pct"]].set_index("pagina_entrada")
-            return {"kind": "bar", "title": "Páginas de entrada con mayor llegada a pricing", "data": df}
+    records = result.get(config["key"], [])
+    if not records:
+        return None
 
-    if tool_name == "obtener_flujos_frecuentes":
-        records = result.get("resultados", [])
-        if records:
-            df = pd.DataFrame(records)[["ruta_flujo", "sesiones"]].set_index("ruta_flujo")
-            return {"kind": "bar", "title": "Flujos de navegación más frecuentes", "data": df}
+    available_cols = [c for c in config["cols"] if c in records[0]]
+    if not available_cols or config["index"] not in available_cols:
+        return None
 
-    if tool_name == "obtener_interaccion_promedio":
-        records = result.get("paginas_destacadas", [])
-        if records:
-            df = pd.DataFrame(records)[["pagina", "interaccion_promedio", "scroll_promedio_pct"]].set_index("pagina")
-            return {"kind": "bar", "title": "Páginas destacadas por interacción promedio", "data": df}
-
-    if tool_name == "obtener_insight_frustracion":
-        records = result.get("resultados", [])
-        if records:
-            df = pd.DataFrame(records)[["device", "tasa_frustracion_pct"]].set_index("device")
-            return {"kind": "bar", "title": "Frustración detectada por dispositivo", "data": df}
-
-    if tool_name == "obtener_insight_calidad_trafico":
-        records = result.get("resumen_por_canal", [])
-        if records:
-            df = pd.DataFrame(records)[["canal_origen", "engagement_promedio"]].set_index("canal_origen")
-            return {"kind": "bar", "title": "Calidad de tráfico por canal", "data": df}
-
-    if tool_name == "obtener_insight_anatomia_abandono":
-        records = result.get("abandono_por_sistema_operativo", [])
-        if records:
-            df = pd.DataFrame(records)[["sistema_operativo", "tasa_abandono_pct"]].set_index("sistema_operativo")
-            return {"kind": "bar", "title": "Abandono rápido por sistema operativo", "data": df}
-
-    return None
+    df = pd.DataFrame(records)[available_cols].set_index(config["index"])
+    return {"title": config["title"], "data": df}
 
 
 def render_chart(tool_calls: list[dict[str, Any]]) -> None:
     if not tool_calls:
         return
 
-    latest_tool_call = tool_calls[-1]
-    chart_payload = build_chart_payload(latest_tool_call)
-    if chart_payload is None:
+    latest = tool_calls[-1]
+    payload = build_chart_payload(latest)
+    if payload is None:
         return
 
     st.markdown(
-        f"<div class='matilda-caption'>Visualización generada desde `{latest_tool_call['tool_name']}`</div>",
+        f"<p class='matilda-chart-caption'>Generado desde {latest['tool_name']}</p>",
         unsafe_allow_html=True,
     )
-    st.markdown(f"#### {chart_payload['title']}")
-
-    if chart_payload["kind"] == "line":
-        st.line_chart(chart_payload["data"], use_container_width=True)
-    else:
-        st.bar_chart(chart_payload["data"], use_container_width=True)
+    st.markdown(f"**{payload['title']}**")
+    st.bar_chart(payload["data"], use_container_width=True)
 
 
 def render_assistant_message(message: dict[str, Any]) -> None:
-    st.markdown("<div class='matilda-assistant-shell'>", unsafe_allow_html=True)
     render_chart(message.get("tool_calls", []))
 
     parsed = parse_copilot_output(message["content"])
@@ -348,23 +424,16 @@ def render_assistant_message(message: dict[str, Any]) -> None:
         <div class="matilda-response-card">
             <div class="matilda-response-section">
                 <div class="matilda-response-label">📊 El Dato</div>
-                <div class="matilda-response-text">{dato_html}</div>
+                <div class="matilda-response-body">{dato_html}</div>
             </div>
             <div class="matilda-response-section">
                 <div class="matilda-response-label">💡 Interpretación</div>
-                <div class="matilda-response-text">{interpretacion_html or "Sin interpretación adicional."}</div>
+                <div class="matilda-response-body">{interpretacion_html or "Sin interpretación adicional."}</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-def render_user_message(content: str) -> None:
-    st.markdown("<div class='matilda-user-shell'>", unsafe_allow_html=True)
-    st.markdown(content)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def build_error_message(exc: Exception) -> dict[str, Any]:
@@ -372,8 +441,8 @@ def build_error_message(exc: Exception) -> dict[str, Any]:
         "role": "assistant",
         "content": (
             "📊 El Dato: No fue posible completar el análisis solicitado.\n\n"
-            f"💡 Interpretación: Se detectó un error técnico al consultar Matilda: `{exc}`. "
-            "Conviene validar la API key, el modelo configurado y la disponibilidad de los datos procesados antes de reintentar."
+            f"💡 Interpretación: Se detectó un error técnico: `{exc}`. "
+            "Valida la API key, el modelo y la disponibilidad de los datos procesados."
         ),
         "tool_calls": [],
     }
@@ -383,7 +452,7 @@ def process_prompt(prompt: str) -> None:
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("user"):
-        render_user_message(prompt)
+        st.markdown(prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("Matilda está analizando los datos..."):
@@ -408,14 +477,14 @@ def render_chat_history() -> None:
             if message["role"] == "assistant":
                 render_assistant_message(message)
             else:
-                render_user_message(message["content"])
+                st.markdown(message["content"])
 
 
 def consume_pending_prompt(chat_prompt: str | None) -> str | None:
-    pending_prompt = st.session_state.pending_prompt
-    if pending_prompt:
+    pending = st.session_state.pending_prompt
+    if pending:
         st.session_state.pending_prompt = None
-        return pending_prompt
+        return pending
     return chat_prompt
 
 
@@ -425,36 +494,37 @@ def main() -> None:
     render_sidebar()
     render_header()
 
-    col_a, col_b = st.columns([2.3, 1], gap="large")
-    with col_a:
+    col_chat, col_info = st.columns([5, 2], gap="medium")
+
+    with col_chat:
         render_chat_history()
         prompt = st.chat_input("Pregunta algo como: ¿qué canales traen el tráfico de mayor calidad?")
         final_prompt = consume_pending_prompt(prompt)
         if final_prompt:
             process_prompt(final_prompt)
-    with col_b:
+
+    with col_info:
         st.markdown(
             """
-            <div class="matilda-panel">
-                <div class="matilda-caption">Modo de uso</div>
-                <strong>1.</strong> Elige un rol en la barra lateral.<br>
-                <strong>2.</strong> Lanza una pregunta rápida o escribe una propia.<br>
-                <strong>3.</strong> Revisa la gráfica, el dato y la interpretación estratégica.
+            <div class="matilda-info-card">
+                <div class="matilda-info-card-label">Cómo usar Matilda</div>
+                <p>
+                    <strong>1.</strong> Elige un rol en la barra lateral.<br>
+                    <strong>2.</strong> Usa una pregunta rápida o escribe la tuya.<br>
+                    <strong>3.</strong> Revisa la gráfica, el dato y la recomendación.
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.markdown(
             """
-            <div class="matilda-panel">
-                <div class="matilda-caption">Salida esperada</div>
-                Cada respuesta de Matilda sigue un formato tipo Copilot:
-                <br><br>
-                <strong>📊 El Dato</strong><br>
-                Resumen factual y cuantitativo.
-                <br><br>
-                <strong>💡 Interpretación</strong><br>
-                Lectura de negocio con una acción sugerida.
+            <div class="matilda-info-card">
+                <div class="matilda-info-card-label">Formato de salida</div>
+                <p>
+                    <strong>📊 El Dato</strong> — Resumen cuantitativo.<br>
+                    <strong>💡 Interpretación</strong> — Lectura de negocio con acción sugerida.
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
