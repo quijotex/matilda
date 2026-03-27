@@ -1,24 +1,16 @@
 from __future__ import annotations
 
-import json
-import os
 import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit, urlunsplit
-from datetime import datetime
 
 import polars as pl
 
 
 JsonDict = dict[str, Any]
 
-# Pipeline de calidad + exportacion parquet:
-# 1) Estandariza y limpia datos de recordings/metrics.
-# 2) Exporta parquet optimizado (zstd + estadisticas).
-# 3) Calcula comparacion before/after, calidad y alertas.
-# 4) Emite reporte JSON para monitoreo y trazabilidad.
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
@@ -28,27 +20,6 @@ METRICS_PATH = RAW_DIR / "2_Data_Metrics.csv"
 
 RECORDINGS_OUTPUT = PROCESSED_DIR / "recordings_clean.parquet"
 METRICS_OUTPUT = PROCESSED_DIR / "metrics_clean.parquet"
-PARQUET_REPORT_OUTPUT = PROCESSED_DIR / "parquet_quality_report.json"
-
-PARQUET_COMPRESSION = os.getenv("PARQUET_COMPRESSION", "zstd")
-PARQUET_COMPRESSION_LEVEL = int(os.getenv("PARQUET_COMPRESSION_LEVEL", "6"))
-PARQUET_ROW_GROUP_SIZE = int(os.getenv("PARQUET_ROW_GROUP_SIZE", "50000"))
-PARQUET_VERSIONED_EXPORT = os.getenv("PARQUET_VERSIONED_EXPORT", "1").strip() in {"1", "true", "True", "yes", "YES"}
-
-MAX_NULL_RATIO_ALERT = float(os.getenv("MAX_NULL_RATIO_ALERT", "0.35"))
-MAX_DUPLICATE_RATIO_ALERT = float(os.getenv("MAX_DUPLICATE_RATIO_ALERT", "0.2"))
-MAX_ROW_DROP_RATIO_ALERT = float(os.getenv("MAX_ROW_DROP_RATIO_ALERT", "0.05"))
-
-METRICS_DROP_NULL_URL = os.getenv("METRICS_DROP_NULL_URL", "1").strip() in {"1", "true", "True", "yes", "YES"}
-METRICS_DEDUP_ENABLED = os.getenv("METRICS_DEDUP_ENABLED", "1").strip() in {"1", "true", "True", "yes", "YES"}
-METRICS_DEDUP_KEYS_RAW = os.getenv("METRICS_DEDUP_KEYS", "url,device,os,metric_name")
-METRICS_NUMERIC_FILL_NULL_WITH_ZERO = os.getenv("METRICS_NUMERIC_FILL_NULL_WITH_ZERO", "0").strip() in {
-    "1",
-    "true",
-    "True",
-    "yes",
-    "YES",
-}
 
 
 def standardize_column_name(column_name: str) -> str:
@@ -62,6 +33,7 @@ def standardize_column_name(column_name: str) -> str:
 
 
 def ensure_directories() -> None:
+    """Create processed-data directories when missing."""
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -138,6 +110,7 @@ def parse_bool(value: Any) -> bool | None:
 
 
 def read_csv_with_standardized_columns(csv_path: Path) -> pl.DataFrame:
+    """Load a CSV and normalize its column names."""
     df = pl.read_csv(
         csv_path,
         infer_schema_length=10_000,
@@ -151,6 +124,7 @@ def read_csv_with_standardized_columns(csv_path: Path) -> pl.DataFrame:
 
 
 def trim_string_columns(df: pl.DataFrame) -> pl.DataFrame:
+    """Trim whitespace from all string columns."""
     string_columns = [column for column, dtype in df.schema.items() if dtype == pl.String]
     if not string_columns:
         return df
@@ -159,6 +133,7 @@ def trim_string_columns(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def cast_numeric_columns(df: pl.DataFrame, numeric_columns: set[str]) -> pl.DataFrame:
+    """Cast a known set of numeric columns to Float64."""
     available_columns = [column for column in numeric_columns if column in df.columns]
     if not available_columns:
         return df
@@ -176,6 +151,7 @@ def cast_numeric_columns(df: pl.DataFrame, numeric_columns: set[str]) -> pl.Data
 
 
 def cast_boolean_columns(df: pl.DataFrame, boolean_columns: set[str]) -> pl.DataFrame:
+    """Cast a known set of flag columns to Boolean."""
     available_columns = [column for column in boolean_columns if column in df.columns]
     if not available_columns:
         return df
@@ -186,6 +162,7 @@ def cast_boolean_columns(df: pl.DataFrame, boolean_columns: set[str]) -> pl.Data
 
 
 def clean_url_columns(df: pl.DataFrame, url_columns: set[str]) -> pl.DataFrame:
+    """Normalize all URL columns that exist in the dataframe."""
     available_columns = [column for column in url_columns if column in df.columns]
     if not available_columns:
         return df
@@ -196,6 +173,7 @@ def clean_url_columns(df: pl.DataFrame, url_columns: set[str]) -> pl.DataFrame:
 
 
 def clean_recordings(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply normalization and feature engineering to session-level data."""
     numeric_columns = {
         "recuento_paginas",
         "clics_sesion",
@@ -297,6 +275,7 @@ def clean_recordings(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def clean_metrics(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply normalization to aggregated metrics data."""
     numeric_columns = {
         "sessions_count",
         "sessions_with_metric_percentage",
@@ -313,7 +292,6 @@ def clean_metrics(df: pl.DataFrame) -> pl.DataFrame:
     }
     url_columns = {"url"}
 
-    original_rows = df.height
     df = trim_string_columns(df)
     df = cast_numeric_columns(df, numeric_columns)
     df = clean_url_columns(df, url_columns)
@@ -321,56 +299,28 @@ def clean_metrics(df: pl.DataFrame) -> pl.DataFrame:
     if "url" in df.columns:
         df = df.with_columns(pl.col("url").map_elements(extract_url_path, return_dtype=pl.String).alias("ruta_url"))
 
-    # Descarta filas sin URL cuando la URL es dimension analitica principal.
-    if METRICS_DROP_NULL_URL and "url" in df.columns:
-        df = df.filter(pl.col("url").is_not_null() & (pl.col("url").str.len_chars() > 0))
-
-    dedup_removed = 0
-    if METRICS_DEDUP_ENABLED:
-        dedup_keys = [standardize_column_name(part) for part in METRICS_DEDUP_KEYS_RAW.split(",") if part.strip()]
-        available_keys = [column for column in dedup_keys if column in df.columns]
-        if available_keys:
-            before_dedup = df.height
-            # keep='first' preserva la primera observacion por combinacion de llaves.
-            df = df.unique(subset=available_keys, keep="first", maintain_order=True)
-            dedup_removed = before_dedup - df.height
-
-    if METRICS_NUMERIC_FILL_NULL_WITH_ZERO:
-        available_numeric = [column for column in numeric_columns if column in df.columns]
-        if available_numeric:
-            # Util para modelos/visuales que no toleran nulos en numericos.
-            df = df.with_columns([pl.col(column).fill_null(0.0).alias(column) for column in available_numeric])
-
-    # Adjunta metadatos de transformacion para trazabilidad en el reporte.
-    df = df.with_columns(
-        [
-            pl.lit(original_rows).alias("_source_rows"),
-            pl.lit(dedup_removed).alias("_dedup_removed_rows"),
-        ]
-    )
-
     return df
 
 
 def export_parquet(df: pl.DataFrame, output_path: Path) -> None:
+    """Persist a dataframe as parquet."""
     df.write_parquet(output_path)
 
 
 def run_pipeline() -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Rebuild the cleaned parquet artifacts from the raw CSV files."""
     ensure_directories()
-    before_recordings = summarize_parquet(RECORDINGS_OUTPUT) if RECORDINGS_OUTPUT.exists() else None
-    before_metrics = summarize_parquet(METRICS_OUTPUT) if METRICS_OUTPUT.exists() else None
 
     recordings_df = read_csv_with_standardized_columns(RECORDINGS_PATH)
     metrics_df = read_csv_with_standardized_columns(METRICS_PATH)
 
     recordings_clean = clean_recordings(recordings_df)
     metrics_clean = clean_metrics(metrics_df)
-    metrics_export = metrics_clean.drop([column for column in ["_source_rows", "_dedup_removed_rows"] if column in metrics_clean.columns])
 
     export_parquet(recordings_clean, RECORDINGS_OUTPUT)
     export_parquet(metrics_clean, METRICS_OUTPUT)
 
+    clear_caches()
     return recordings_clean, metrics_clean
 
 
@@ -974,8 +924,6 @@ ANALYTIC_TOOLS: list[Callable[..., JsonDict]] = [
 
 
 if __name__ == "__main__":
-    recordings_df, metrics_df, parquet_summary = run_pipeline()
+    recordings_df, metrics_df = run_pipeline()
     print(f"Recordings procesado: {recordings_df.height:,} filas -> {RECORDINGS_OUTPUT}")
     print(f"Metrics procesado: {metrics_df.height:,} filas -> {METRICS_OUTPUT}")
-    print(f"Reporte parquet: {PARQUET_REPORT_OUTPUT}")
-    print(parquet_summary)
