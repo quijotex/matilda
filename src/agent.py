@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 FALLBACK_MODEL_NAMES = ("gemini-2.5-flash", "gemini-2.5-pro")
-DEFAULT_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+DEFAULT_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 ToolCallRecord = dict[str, Any]
 _TOOL_CALL_LOG: list[ToolCallRecord] = []
 SYSTEM_PROMPT = """
@@ -111,7 +111,7 @@ def crear_configuracion_modelo(model_name: str | None = None) -> tuple[str, type
 
     Args:
         model_name: Preferred Gemini model identifier, for example
-            `gemini-2.5-flash` or `gemini-2.5-pro`. If omitted, the function
+            `gemini-1.5-flash` or `gemini-2.5-pro`. If omitted, the function
             will use `GEMINI_MODEL` from the environment.
 
     Returns:
