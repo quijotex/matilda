@@ -3,3 +3,5 @@ pandas
 polars
 google-genai
 python-dotenv
+altair
+pytest>=8.0

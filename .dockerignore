@@ -1,0 +1,11 @@
+# Ignorar variables de entorno (¡Crucial para proteger tu API Key de Gemini!)
+.env
+
+# Ignorar la data cruda (solo subiremos los Parquet limpios)
+data/raw/
+
+# Ignorar archivos de sistema y caché de Python
+__pycache__/
+*.pyc
+.git/
+.gitignore
