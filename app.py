@@ -68,6 +68,9 @@ def normalize_label(value: Any, max_len: int = 34) -> str:
 
     text = text.replace('"', "").replace("'", "")
     text = re.sub(r"/\d+(?=/|$)", "/:id", text)
+    text = text.replace("/", " ")
+    text = text.replace("-", " ")
+    text = text.replace(":id", "id")
     text = re.sub(r"\s+", " ", text).strip()
 
     if len(text) > max_len:
