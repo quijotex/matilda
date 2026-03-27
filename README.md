@@ -116,7 +116,7 @@ La interfaz estará disponible en [http://localhost:8501](http://localhost:8501)
 ---
 
 ## 🧠 Arquitectura
-<img width="8192" height="3475" alt="Mermaid Chart - Create complex, visual diagrams with text -2026-03-27-181105" src="https://github.com/user-attachments/assets/5bfeb91c-4839-4b83-bc6c-34aec4f03668" />
+<img  alt="Mermaid Chart - Create complex, visual diagrams with text -2026-03-27-181105" src="https://github.com/user-attachments/assets/5bfeb91c-4839-4b83-bc6c-34aec4f03668" />
 
 
 
