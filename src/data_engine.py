@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -17,6 +18,11 @@ METRICS_PATH = RAW_DIR / "2_Data_Metrics.csv"
 
 RECORDINGS_OUTPUT = PROCESSED_DIR / "recordings_clean.parquet"
 METRICS_OUTPUT = PROCESSED_DIR / "metrics_clean.parquet"
+PARQUET_REPORT_OUTPUT = PROCESSED_DIR / "parquet_quality_report.json"
+
+PARQUET_COMPRESSION = "zstd"
+PARQUET_COMPRESSION_LEVEL = 6
+PARQUET_ROW_GROUP_SIZE = 50_000
 
 
 def standardize_column_name(column_name: str) -> str:
@@ -281,11 +287,97 @@ def clean_metrics(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def export_parquet(df: pl.DataFrame, output_path: Path) -> None:
-    df.write_parquet(output_path)
+    df.write_parquet(
+        output_path,
+        compression=PARQUET_COMPRESSION,
+        compression_level=PARQUET_COMPRESSION_LEVEL,
+        row_group_size=PARQUET_ROW_GROUP_SIZE,
+        statistics=True,
+    )
 
 
-def run_pipeline() -> tuple[pl.DataFrame, pl.DataFrame]:
+def summarize_parquet(parquet_path: Path) -> dict[str, Any]:
+    """Resume metadata y calidad básica de un parquet exportado."""
+    df = pl.read_parquet(parquet_path)
+    total_cells = df.height * max(df.width, 1)
+    null_cells = int(df.null_count().sum_horizontal().item())
+    null_ratio = (null_cells / total_cells) if total_cells else 0.0
+    duplicate_rows = int(df.is_duplicated().sum()) if df.height else 0
+
+    return {
+        "file": parquet_path.name,
+        "size_bytes": parquet_path.stat().st_size,
+        "size_mb": round(parquet_path.stat().st_size / (1024 * 1024), 3),
+        "rows": df.height,
+        "columns": df.width,
+        "schema": {column: str(dtype) for column, dtype in df.schema.items()},
+        "null_cells": null_cells,
+        "null_ratio": round(null_ratio, 6),
+        "duplicate_rows": duplicate_rows,
+    }
+
+
+def build_before_after_comparison(before: dict[str, Any] | None, after: dict[str, Any]) -> dict[str, Any]:
+    size_before = before.get("size_bytes") if before else None
+    size_after = after["size_bytes"]
+    size_diff = (size_after - size_before) if isinstance(size_before, int) else None
+    size_reduction_pct = (
+        round(((size_before - size_after) / size_before) * 100, 3) if isinstance(size_before, int) and size_before > 0 else None
+    )
+
+    return {
+        "file": after["file"],
+        "before_exists": before is not None,
+        "size_bytes_before": size_before,
+        "size_bytes_after": size_after,
+        "size_bytes_diff": size_diff,
+        "size_reduction_pct": size_reduction_pct,
+        "rows_before": before.get("rows") if before else None,
+        "rows_after": after["rows"],
+        "rows_diff": (after["rows"] - before["rows"]) if before else None,
+        "null_ratio_before": before.get("null_ratio") if before else None,
+        "null_ratio_after": after["null_ratio"],
+        "null_ratio_diff": (after["null_ratio"] - before["null_ratio"]) if before else None,
+        "duplicate_rows_before": before.get("duplicate_rows") if before else None,
+        "duplicate_rows_after": after["duplicate_rows"],
+        "duplicate_rows_diff": (after["duplicate_rows"] - before["duplicate_rows"]) if before else None,
+    }
+
+
+def export_parquet_report(
+    report_path: Path,
+    entries: list[dict[str, Any]],
+    comparisons: list[dict[str, Any]],
+) -> None:
+    report = {
+        "compression": PARQUET_COMPRESSION,
+        "compression_level": PARQUET_COMPRESSION_LEVEL,
+        "row_group_size": PARQUET_ROW_GROUP_SIZE,
+        "files": entries,
+        "before_after_comparison": comparisons,
+    }
+    report_path.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding="utf-8")
+
+
+def build_console_summary(comparisons: list[dict[str, Any]]) -> str:
+    total_before = sum(item["size_bytes_before"] for item in comparisons if isinstance(item.get("size_bytes_before"), int))
+    total_after = sum(item["size_bytes_after"] for item in comparisons if isinstance(item.get("size_bytes_after"), int))
+    total_diff = total_after - total_before
+    total_reduction_pct = ((total_before - total_after) / total_before * 100) if total_before > 0 else 0.0
+
+    return (
+        "Resumen ahorro parquet | "
+        f"antes={total_before:,} bytes ({total_before / (1024 * 1024):.3f} MB) | "
+        f"despues={total_after:,} bytes ({total_after / (1024 * 1024):.3f} MB) | "
+        f"delta={total_diff:,} bytes ({total_diff / (1024 * 1024):.3f} MB) | "
+        f"reduccion={total_reduction_pct:.3f}%"
+    )
+
+
+def run_pipeline() -> tuple[pl.DataFrame, pl.DataFrame, str]:
     ensure_directories()
+    before_recordings = summarize_parquet(RECORDINGS_OUTPUT) if RECORDINGS_OUTPUT.exists() else None
+    before_metrics = summarize_parquet(METRICS_OUTPUT) if METRICS_OUTPUT.exists() else None
 
     recordings_df = read_csv_with_standardized_columns(RECORDINGS_PATH)
     metrics_df = read_csv_with_standardized_columns(METRICS_PATH)
@@ -296,10 +388,26 @@ def run_pipeline() -> tuple[pl.DataFrame, pl.DataFrame]:
     export_parquet(recordings_clean, RECORDINGS_OUTPUT)
     export_parquet(metrics_clean, METRICS_OUTPUT)
 
-    return recordings_clean, metrics_clean
+    after_recordings = summarize_parquet(RECORDINGS_OUTPUT)
+    after_metrics = summarize_parquet(METRICS_OUTPUT)
+
+    comparisons = [
+        build_before_after_comparison(before_recordings, after_recordings),
+        build_before_after_comparison(before_metrics, after_metrics),
+    ]
+
+    export_parquet_report(
+        PARQUET_REPORT_OUTPUT,
+        [after_recordings, after_metrics],
+        comparisons,
+    )
+
+    return recordings_clean, metrics_clean, build_console_summary(comparisons)
 
 
 if __name__ == "__main__":
-    recordings_df, metrics_df = run_pipeline()
+    recordings_df, metrics_df, parquet_summary = run_pipeline()
     print(f"Recordings procesado: {recordings_df.height:,} filas -> {RECORDINGS_OUTPUT}")
     print(f"Metrics procesado: {metrics_df.height:,} filas -> {METRICS_OUTPUT}")
+    print(f"Reporte parquet: {PARQUET_REPORT_OUTPUT}")
+    print(parquet_summary)
